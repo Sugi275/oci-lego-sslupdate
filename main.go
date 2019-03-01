@@ -3,12 +3,14 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"time"
 
 	"github.com/Sugi275/oci-env-configprovider/envprovider"
 	"github.com/Sugi275/oci-lego-sslupdate/loglib"
+	fdk "github.com/fnproject/fdk-go"
 	"github.com/xenolf/lego/platform/config/env"
 )
 
@@ -34,10 +36,10 @@ const (
 )
 
 func main() {
-	ceritficateUpdateHandler()
+	fdk.Handle(fdk.HandlerFunc(ceritficateUpdateHandler))
 }
 
-func ceritficateUpdateHandler() {
+func ceritficateUpdateHandler(ctx context.Context, in io.Reader, out io.Writer) {
 	loglib.InitSugar()
 	defer loglib.Sugar.Sync()
 
@@ -112,6 +114,8 @@ func ceritficateUpdateHandler() {
 	}
 
 	loglib.Sugar.Infof("Successful! Complete update SSL certificate")
+
+	out.Write([]byte("Successful! Complete update SSL certificate"))
 }
 
 func newUpdateCertificater() UpdateCertificater {
