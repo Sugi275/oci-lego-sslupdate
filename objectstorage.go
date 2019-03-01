@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/Sugi275/oci-env-configprovider/envprovider"
+	"github.com/Sugi275/oci-lego-sslupdate/loglib"
 	"github.com/oracle/oci-go-sdk/common"
 	"github.com/oracle/oci-go-sdk/objectstorage"
 )
@@ -26,6 +27,7 @@ func uploadCertificateToObjectStorage(updateCertificater UpdateCertificater) err
 	if err != nil {
 		errString := err.Error()
 		if strings.Contains(errString, "does not exist in namespace") {
+			loglib.Sugar.Infof("BucketName %s is not found. Request create bucket.", updateCertificater.ObjectStorageBucketName)
 			err := createBucket(updateCertificater, client)
 			if err != nil {
 				return err
@@ -61,10 +63,14 @@ func createBucket(updateCertificater UpdateCertificater, client objectstorage.Ob
 		CreateBucketDetails: createBucketDetails,
 	}
 
+	loglib.Sugar.Infof("Request createBucket. BucketName:%s", updateCertificater.ObjectStorageBucketName)
+
 	_, err := client.CreateBucket(updateCertificater.Context, createBucketRequest)
 	if err != nil {
 		return err
 	}
+
+	loglib.Sugar.Infof("Response createBucket.")
 
 	return nil
 }
@@ -79,10 +85,16 @@ func putFile(updateCertificater UpdateCertificater, client objectstorage.ObjectS
 		PutObjectBody: ioutil.NopCloser(buffer),
 	}
 
+	loglib.Sugar.Infof("Request PutObject in ObjectStorage. BucketName:%s ObjectName:%s",
+		updateCertificater.ObjectStorageBucketName,
+		objectName)
+
 	_, err := client.PutObject(updateCertificater.Context, putObjectRequest)
 	if err != nil {
 		return err
 	}
+
+	loglib.Sugar.Infof("Response PutObject.")
 
 	return nil
 }
