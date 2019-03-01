@@ -34,6 +34,10 @@ const (
 )
 
 func main() {
+	ceritficateUpdateHandler()
+}
+
+func ceritficateUpdateHandler() {
 	loglib.InitSugar()
 	defer loglib.Sugar.Sync()
 
