@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/Sugi275/oci-env-configprovider/envprovider"
+	"github.com/Sugi275/oci-lego-sslupdate/loglib"
 	"github.com/oracle/oci-go-sdk/common"
 	"github.com/oracle/oci-go-sdk/loadbalancer"
 )
@@ -70,11 +71,16 @@ func createNewOCICertificate(updateCertificater UpdateCertificater, client loadb
 		LoadBalancerId:           common.String(updateCertificater.LoadbalancerID),
 	}
 
+	loglib.Sugar.Infof("Request CreateCertificate in OCI. LoadBalancerID:%s  CertificateName:%s",
+		updateCertificater.LoadbalancerID,
+		updateCertificater.CertificateName)
 	createCertificateResponse, err := client.CreateCertificate(updateCertificater.Context, request)
 
 	if err != nil {
 		return "", err
 	}
+
+	loglib.Sugar.Infof("Response CreateCertificate in OCI to successful.")
 
 	return *createCertificateResponse.OpcWorkRequestId, nil
 }
@@ -84,6 +90,8 @@ func waitWorkRequest(updateCertificater UpdateCertificater, client loadbalancer.
 		WorkRequestId: common.String(workRequestID),
 	}
 
+	loglib.Sugar.Infof("Waiting WorkRequest. WorkRequestID:%s", workRequestID)
+
 	state := loadbalancer.WorkRequestLifecycleStateAccepted
 	for state == loadbalancer.WorkRequestLifecycleStateAccepted || state == loadbalancer.WorkRequestLifecycleStateInProgress {
 		response, err := client.GetWorkRequest(updateCertificater.Context, getWorkRequestRequest)
@@ -92,10 +100,11 @@ func waitWorkRequest(updateCertificater UpdateCertificater, client loadbalancer.
 		}
 		state = response.LifecycleState
 		time.Sleep(5 * time.Second)
+		loglib.Sugar.Infof("Waiting WorkRequest. WorkRequestID:%s", workRequestID)
 	}
 
 	if state == loadbalancer.WorkRequestLifecycleStateFailed {
-		return fmt.Errorf("Failed Work Request: workRequestID %s", workRequestID)
+		return fmt.Errorf("Failed WorkRequest. WorkRequestID:%s", workRequestID)
 	}
 
 	return nil
@@ -107,10 +116,14 @@ func setNewOCICertificate(updateCertificater UpdateCertificater, client loadbala
 		LoadBalancerId: common.String(updateCertificater.LoadbalancerID),
 	}
 
+	loglib.Sugar.Infof("Request getLoadBalancer. LoadBalancerID:%s", updateCertificater.LoadbalancerID)
+
 	getLoadBalancerResponse, err := client.GetLoadBalancer(updateCertificater.Context, getLoadBalancerRequest)
 	if err != nil {
 		return nil, nil, err
 	}
+
+	loglib.Sugar.Infof("Response getLoadBalancer.")
 
 	// 更新対象のListenerNameのみ、新しいCertificateをsetする
 	// 更新対象のListenerに設定されているCertificateを削除対象として、deleteCertificateIDMapに格納する。Mapを使用しているのは、重複して格納しないため
@@ -118,7 +131,7 @@ func setNewOCICertificate(updateCertificater UpdateCertificater, client loadbala
 	for _, listenerName := range updateCertificater.ListenerNames {
 		_, exist := getLoadBalancerResponse.LoadBalancer.Listeners[listenerName]
 		if !exist {
-			return nil, nil, fmt.Errorf("Lister Not Found in OracleCloud: ListenerName %s", listenerName)
+			return nil, nil, fmt.Errorf("Listener Not Found in OracleCloud: ListenerName %s", listenerName)
 		}
 
 		sslConfigurationDetails := loadbalancer.SslConfigurationDetails{
@@ -132,6 +145,11 @@ func setNewOCICertificate(updateCertificater UpdateCertificater, client loadbala
 			SslConfiguration:      &sslConfigurationDetails,
 		}
 
+		loglib.Sugar.Infof("Request UpdateListenerRequest. LoadBalancerID:%s ListenerName:%s, CertificateName:%s",
+			updateCertificater.LoadbalancerID,
+			listenerName,
+			updateCertificater.CertificateName)
+
 		updateListenerRequest := loadbalancer.UpdateListenerRequest{
 			UpdateListenerDetails: updateListenerDetails,
 			LoadBalancerId:        common.String(updateCertificater.LoadbalancerID),
@@ -142,6 +160,9 @@ func setNewOCICertificate(updateCertificater UpdateCertificater, client loadbala
 		if err != nil {
 			return nil, nil, err
 		}
+
+		loglib.Sugar.Infof("Response UpdateListenerRequest.")
+
 		workRequestIDs = append(workRequestIDs, *response.OpcWorkRequestId)
 
 		// 更新対象のListenerに設定されているCertificateを削除対象として、deleteCertificateIDMapに格納する
@@ -160,10 +181,16 @@ func deleteCertificate(updateCertificater UpdateCertificater, client loadbalance
 		CertificateName: common.String(deleteCertificateName),
 	}
 
+	loglib.Sugar.Infof("Request DeleteCertificate. LoadBalancerID:%s CertificateName:%s",
+		updateCertificater.LoadbalancerID,
+		deleteCertificateName)
+
 	response, err := client.DeleteCertificate(updateCertificater.Context, deleteCertificateRequest)
 	if err != nil {
 		return "", err
 	}
+
+	loglib.Sugar.Infof("Response DeleteCertificate.")
 
 	return *response.OpcWorkRequestId, nil
 }

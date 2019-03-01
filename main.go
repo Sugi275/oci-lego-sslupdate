@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/Sugi275/oci-env-configprovider/envprovider"
+	"github.com/Sugi275/oci-lego-sslupdate/loglib"
 	"github.com/xenolf/lego/platform/config/env"
 )
 
@@ -32,15 +33,16 @@ const (
 	envObjectStorageNamespace  = "OCI_OS_NAMESPACE"
 )
 
-// TODO 全体のエラー処理を、QicooAPIのように変更するべき
-
 func main() {
+	loglib.InitSugar()
+	defer loglib.Sugar.Sync()
+
 	// Let's Encrypt
-	// TODO renew関数を使うように変更！
 	certificates, err := getCertificates()
 
 	if err != nil {
-		panic(err)
+		loglib.Sugar.Error(err)
+		return
 	}
 
 	// updateCertificaterを生成して、パラメータを設定
@@ -49,7 +51,8 @@ func main() {
 	loadbalancerID, ok := os.LookupEnv(envLoadbalancerID)
 	if !ok {
 		err = fmt.Errorf("can not read envLoadbalancerID from environment variable %s", envLoadbalancerID)
-		panic(err)
+		loglib.Sugar.Error(err)
+		return
 	}
 	updateCertificater.LoadbalancerID = loadbalancerID
 
@@ -57,7 +60,8 @@ func main() {
 	listenerNamesValue, ok := os.LookupEnv(envListenerNames)
 	if !ok {
 		err = fmt.Errorf("can not read envListenerNames from environment variable %s", envListenerNames)
-		panic(err)
+		loglib.Sugar.Error(err)
+		return
 	}
 	listenerNames := strings.Split(listenerNamesValue, ",")
 	for _, ln := range listenerNames {
@@ -68,10 +72,15 @@ func main() {
 	updateCertificater.PublicCertificate = string(certificates.Certificate)
 
 	// Update to SSL Backend
+	loglib.Sugar.Infof("Starting updateCertificate. LoadbalancerID:%s ListenerNames:%s",
+		updateCertificater.LoadbalancerID,
+		updateCertificater.ListenerNames)
 	err = updateCertificate(updateCertificater)
 	if err != nil {
-		panic(err)
+		loglib.Sugar.Error(err)
+		return
 	}
+	loglib.Sugar.Infof("Successful updateCertificate.")
 
 	// Upload certificate to Object Storage
 	bucketName := env.GetOrDefaultString(envObjectStorageBucketName, "lego-cert")
@@ -80,22 +89,25 @@ func main() {
 	namespace, ok := os.LookupEnv(envObjectStorageNamespace)
 	if !ok {
 		err = fmt.Errorf("can not read namespace from environment variable %s", envObjectStorageNamespace)
-		panic(err)
+		loglib.Sugar.Error(err)
+		return
 	}
 	updateCertificater.ObjectStorageNamespace = namespace
 
 	compartmentID, err := envprovider.GetCompartmentID()
 	if err != nil {
-		panic(err)
+		loglib.Sugar.Error(err)
+		return
 	}
 	updateCertificater.CompartmentID = compartmentID
 
 	err = uploadCertificateToObjectStorage(updateCertificater)
 	if err != nil {
-		panic(err)
+		loglib.Sugar.Error(err)
+		return
 	}
 
-	fmt.Println("Successful! Complete update SSL certificate!")
+	loglib.Sugar.Infof("Successful! Complete update SSL certificate")
 }
 
 func newUpdateCertificater() UpdateCertificater {
