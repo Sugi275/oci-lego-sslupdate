@@ -10,6 +10,7 @@ LDFLAGS := -ldflags="-s -X \"main.version=$(VERSION)\""
 $(TARGET): $(SRCS)
 	rm -rf bin
 	CGO_ENABLED=0 go build $(OPTS) $(LDFLAGS) -o bin/$(NAME) .
+	fn --verbose deploy --app env-app
 
 .PHONY: install
 install:
