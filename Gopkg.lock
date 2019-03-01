@@ -226,6 +226,14 @@
   version = "v1.1.0"
 
 [[projects]]
+  branch = "master"
+  digest = "1:81e3822611f995815aae84f75d2a2a705921976364d8bc4280a1c329fd96a3c9"
+  name = "github.com/fnproject/fdk-go"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "bd24a5aa63cf1a4355575d8eec6cd30d4702d99b"
+
+[[projects]]
   digest = "1:d37c61a335d13bc49b3f90e9e13c8686e4548839b69c58549e727afb2245c454"
   name = "github.com/go-ini/ini"
   packages = ["."]
@@ -858,6 +866,7 @@
   analyzer-version = 1
   input-imports = [
     "github.com/Sugi275/oci-env-configprovider/envprovider",
+    "github.com/fnproject/fdk-go",
     "github.com/oracle/oci-go-sdk/common",
     "github.com/oracle/oci-go-sdk/loadbalancer",
     "github.com/oracle/oci-go-sdk/objectstorage",

@@ -1,0 +1,7 @@
+schema_version: 20180708
+name: oci-lego-sslupdate
+version: 0.0.20
+runtime: docker
+entrypoint: ./func
+format: http-stream
+timeout: 120
