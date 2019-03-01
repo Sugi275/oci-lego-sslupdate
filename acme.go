@@ -5,12 +5,16 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
+	"fmt"
 	"log"
+	"os"
+	"strings"
 
 	"github.com/xenolf/lego/certcrypto"
 	"github.com/xenolf/lego/certificate"
 	_ "github.com/xenolf/lego/challenge/dns01"
 	"github.com/xenolf/lego/lego"
+	"github.com/xenolf/lego/platform/config/env"
 	"github.com/xenolf/lego/providers/dns"
 	"github.com/xenolf/lego/registration"
 )
@@ -37,23 +41,42 @@ func (u *MyUser) GetPrivateKey() crypto.PrivateKey {
 	return u.key
 }
 
-func getCertificates() (*certificate.Resource, error) {
+func generateMyUser() MyUser {
 	// Create a user. New accounts need an email and private key to start.
 	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	myUser := MyUser{
-		Email: "youraddress@yours.com",
+	email := env.GetOrDefaultString("LETSENCRYPT_MY_MAILADDRESS", "default@email.com")
+
+	return MyUser{
+		Email: email,
 		key:   privateKey,
 	}
+}
 
+func getDomains() ([]string, error) {
+	domainsString, ok := os.LookupEnv("LETSENCRYPT_DOMAINS")
+
+	if !ok {
+		err := fmt.Errorf("can not read domains from environment variable %s", "LETSENCRYPT_DOMAINS")
+		return nil, err
+	}
+
+	domains := strings.Split(domainsString, ",")
+
+	return domains, nil
+}
+
+func getCertificates() (*certificate.Resource, error) {
+	myUser := generateMyUser()
 	config := lego.NewConfig(&myUser)
 
 	// This CA URL is configured for a local dev instance of Boulder running in Docker in a VM.
-	config.CADirURL = "https://acme-staging-v02.api.letsencrypt.org/directory"
-	//config.CADirURL = "https://acme-v02.api.letsencrypt.org/directory"
+	// If developping, staging URL is useful.
+	// https://acme-staging-v02.api.letsencrypt.org/directory
+	config.CADirURL = env.GetOrDefaultString("LETSENCRYPT_CA_URL", "https://acme-v02.api.letsencrypt.org/directory")
 	config.Certificate.KeyType = certcrypto.RSA2048
 
 	// A client facilitates communication with the CA server.
@@ -78,8 +101,14 @@ func getCertificates() (*certificate.Resource, error) {
 	}
 	myUser.Registration = reg
 
+	domains, err := getDomains()
+	if err != nil {
+		log.Fatal(err)
+		return nil, err
+	}
+
 	request := certificate.ObtainRequest{
-		Domains: []string{"sugi.tokyo", "*.sugi.tokyo"},
+		Domains: domains,
 		Bundle:  true,
 	}
 	certificates, err := client.Certificate.Obtain(request)
